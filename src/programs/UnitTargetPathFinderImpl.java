@@ -7,84 +7,85 @@ import com.battle.heroes.army.programs.UnitTargetPathFinder;
 import java.util.*;
 
 public class UnitTargetPathFinderImpl implements UnitTargetPathFinder {
-
+    // Размеры поля
     private static final int WIDTH = 27;
     private static final int HEIGHT = 21;
+
+    // Возможные ходы: по горизонтали, вертикали и диагонали
     private static final int[] DX = {-1, -1, -1, 0, 0, 1, 1, 1};
     private static final int[] DY = {-1, 0, 1, -1, 1, -1, 0, 1};
 
     @Override
     public List<Edge> getTargetPath(Unit attackUnit, Unit targetUnit, List<Unit> existingUnitList) {
+        // Координаты начала и конца
         int startX = attackUnit.getxCoordinate();
         int startY = attackUnit.getyCoordinate();
         int targetX = targetUnit.getxCoordinate();
         int targetY = targetUnit.getyCoordinate();
 
-        // Быстрая проверка препятствий через массив
+        // Создаем массив занятых клеток, чтобы быстро проверять препятствия
         boolean[][] isOccupied = new boolean[WIDTH][HEIGHT];
         for (Unit unit : existingUnitList) {
+            // Клетка занята, если там живой юнит, и это не мы сами и не наша цель
             if (unit.isAlive() && unit != attackUnit && unit != targetUnit) {
-                int ux = unit.getxCoordinate();
-                int uy = unit.getyCoordinate();
-                if (isValid(ux, uy)) {
-                    isOccupied[ux][uy] = true;
-                }
+                isOccupied[unit.getxCoordinate()][unit.getyCoordinate()] = true;
             }
         }
 
-        // Храним посещенные узлы в массиве для мгновенного доступа
-        Node[][] visited = new Node[WIDTH][HEIGHT];
-        Queue<Node> queue = new LinkedList<>();
+        // Очередь для BFS и массив посещенных клеток (храним там предков для восстановления пути)
+        Queue<Edge> queue = new LinkedList<>();
+        Edge[][] cameFrom = new Edge[WIDTH][HEIGHT]; // Хранит "откуда мы пришли" в эту клетку
 
-        Node startNode = new Node(startX, startY, null);
-        queue.add(startNode);
-        visited[startX][startY] = startNode;
+        // Добавляем стартовую точку
+        queue.add(new Edge(startX, startY));
+        cameFrom[startX][startY] = new Edge(startX, startY); // Стартовая точка ссылается сама на себя
 
         while (!queue.isEmpty()) {
-            Node current = queue.poll();
+            Edge current = queue.poll();
 
-            if (current.x == targetX && current.y == targetY) {
-                return reconstructPath(current);
+            // Если пришли к цели — восстанавливаем путь
+            if (current.getX() == targetX && current.getY() == targetY) {
+                return reconstructPath(cameFrom, current);
             }
 
+            // Проверяем всех соседей
             for (int i = 0; i < 8; i++) {
-                int nextX = current.x + DX[i];
-                int nextY = current.y + DY[i];
+                int nextX = current.getX() + DX[i];
+                int nextY = current.getY() + DY[i];
 
-                if (isValid(nextX, nextY) && !isOccupied[nextX][nextY] && visited[nextX][nextY] == null) {
-                    Node neighbor = new Node(nextX, nextY, current);
-                    visited[nextX][nextY] = neighbor;
-                    queue.add(neighbor);
+                // Проверяем границы поля, препятствия и то, что мы там еще не были
+                if (isValid(nextX, nextY) && !isOccupied[nextX][nextY] && cameFrom[nextX][nextY] == null) {
+                    queue.add(new Edge(nextX, nextY));
+                    cameFrom[nextX][nextY] = current; // Запоминаем, откуда пришли
                 }
             }
         }
 
-        return new ArrayList<>(); // Путь не найден
+        // Если путь не найден
+        return new ArrayList<>();
     }
 
+    // Проверка, что координаты внутри поля
     private boolean isValid(int x, int y) {
         return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
     }
 
-    private List<Edge> reconstructPath(Node target) {
+    // Восстановление пути от цели к старту
+    private List<Edge> reconstructPath(Edge[][] cameFrom, Edge end) {
         List<Edge> path = new ArrayList<>();
-        Node current = target;
-        while (current != null) {
-            path.add(new Edge(current.x, current.y));
-            current = current.parent;
+        Edge curr = end;
+
+        // Идем назад по ссылкам, пока не дойдем до старта
+        while (curr.getX() != cameFrom[curr.getX()][curr.getY()].getX() ||
+                curr.getY() != cameFrom[curr.getX()][curr.getY()].getY()) {
+            path.add(curr);
+            curr = cameFrom[curr.getX()][curr.getY()];
         }
+        // Добавляем старт
+        path.add(curr);
+
+        // Разворачиваем список, чтобы путь был от начала к концу
         Collections.reverse(path);
         return path;
-    }
-
-    private static class Node {
-        int x, y;
-        Node parent;
-
-        Node(int x, int y, Node parent) {
-            this.x = x;
-            this.y = y;
-            this.parent = parent;
-        }
     }
 }

@@ -5,73 +5,55 @@ import com.battle.heroes.army.Unit;
 import com.battle.heroes.army.programs.PrintBattleLog;
 import com.battle.heroes.army.programs.SimulateBattle;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public class SimulateBattleImpl implements SimulateBattle {
-
     private PrintBattleLog printBattleLog;
-
-    public SimulateBattleImpl() {}
-
-    public SimulateBattleImpl(PrintBattleLog printBattleLog) {
-        this.printBattleLog = printBattleLog;
-    }
-
-    public void setPrintBattleLog(PrintBattleLog printBattleLog) {
-        this.printBattleLog = printBattleLog;
-    }
 
     @Override
     public void simulate(Army playerArmy, Army computerArmy) throws InterruptedException {
-        // Получаем списки юнитов один раз
+        // Получаем списки юнитов
         List<Unit> playerUnits = playerArmy.getUnits();
         List<Unit> computerUnits = computerArmy.getUnits();
 
-        // Бой идет, пока в обеих армиях есть хоть кто-то живой
+        // Бой идет, пока в обеих армиях есть хотя бы один живой юнит
         while (hasAliveUnits(playerUnits) && hasAliveUnits(computerUnits)) {
-            simulateRound(playerUnits, computerUnits);
+            // Собираем всех живых в одну кучу, чтобы определить очередность хода
+            List<Unit> allUnits = new ArrayList<>();
+            allUnits.addAll(playerUnits);
+            allUnits.addAll(computerUnits);
+
+            // Сортируем по атаке: у кого больше, тот ходит первым (инициатива)
+            allUnits.sort(Comparator.comparingInt(Unit::getBaseAttack).reversed());
+
+            // Раунд боя
+            for (Unit unit : allUnits) {
+                // Если юнит убит до своего хода — пропускаем
+                if (!unit.isAlive()) continue;
+
+                // Атакуем. (логика атаки внутри метода program.attack)
+                Unit target = unit.getProgram().attack();
+
+                // Если есть логгер и атака прошла успешно — пишем лог
+                if (printBattleLog != null && target != null) {
+                    printBattleLog.printBattleLog(unit, target);
+                }
+
+                // Делаем паузу, чтобы бой не пролетел мгновенно (для визуализации)
+                Thread.sleep(10);
+            }
         }
     }
 
-    private void simulateRound(List<Unit> playerUnits, List<Unit> computerUnits) throws InterruptedException {
-        List<Unit> allUnits = new ArrayList<>();
-
-        // Добавляем только живых
-        playerUnits.stream().filter(Unit::isAlive).forEach(allUnits::add);
-        computerUnits.stream().filter(Unit::isAlive).forEach(allUnits::add);
-
-        // Сортируем по атаке (от большего к меньшему)
-        allUnits.sort(Comparator.comparingInt(Unit::getBaseAttack).reversed());
-
-        for (Unit unit : allUnits) {
-            if (!unit.isAlive()) continue;
-
-            // Проверка: не победила ли одна из сторон прямо посреди раунда
-            // Используем быстрые проверки
-            if (!hasAliveUnits(playerUnits) || !hasAliveUnits(computerUnits)) {
-                return;
-            }
-
-            // Юнит атакует
-            Unit target = unit.getProgram().attack();
-
-            // Важно: проверяем, что цель существует, прежде чем логировать
-            if (printBattleLog != null && target != null) {
-                printBattleLog.printBattleLog(unit, target);
-            }
-
-            Thread.sleep(50);
-        }
-    }
-
-    // Оптимизированная проверка: используем List напрямую
+    // Вспомогательный метод проверки живых
     private boolean hasAliveUnits(List<Unit> units) {
         for (Unit unit : units) {
             if (unit.isAlive()) return true;
         }
         return false;
+    }
+
+    public void setPrintBattleLog(PrintBattleLog printBattleLog) {
+        this.printBattleLog = printBattleLog;
     }
 }

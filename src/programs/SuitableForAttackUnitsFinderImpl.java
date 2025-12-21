@@ -12,28 +12,31 @@ public class SuitableForAttackUnitsFinderImpl implements SuitableForAttackUnitsF
     public List<Unit> getSuitableUnits(List<List<Unit>> unitsByRow, boolean isLeftArmyTarget) {
         List<Unit> suitableUnits = new ArrayList<>();
 
+        // Проходим по каждому ряду поля
         for (List<Unit> row : unitsByRow) {
             if (isLeftArmyTarget) {
-                // Ищем самого левого (первого не-null) юнита в ряду
+                // Если атакуем левую армию (компьютер бьет нас)
+                // Нужно найти самого левого живого юнита, так как остальные закрыты
                 for (int i = 0; i < row.size(); i++) {
                     Unit unit = row.get(i);
+                    // Проверяем, что юнит есть и он жив
                     if (unit != null && unit.isAlive()) {
                         suitableUnits.add(unit);
-                        break; // Как только нашли первого — этот ряд обработан
+                        break; // Нашли первого — выходим, остальные за ним спрятаны
                     }
                 }
             } else {
-                // Ищем самого правого (последнего не-null) юнита в ряду
+                // Если атакуем правую армию (мы бьем компьютер)
+                // Идем справа налево, ищем крайнего
                 for (int i = row.size() - 1; i >= 0; i--) {
                     Unit unit = row.get(i);
                     if (unit != null && unit.isAlive()) {
                         suitableUnits.add(unit);
-                        break; // Как только нашли первого с края — выходим
+                        break; // Нашли крайнего справа — добавляем и переходим к след. ряду
                     }
                 }
             }
         }
-
         return suitableUnits;
     }
 }
